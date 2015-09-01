@@ -1,0 +1,39 @@
+Funktion der Scripts pordner01.sh sowie patexit01.sh:
+=====================================================
+
+Beim Patientenaufruf in DATA VITAL wird gleichzeitig ein Symlink in einem
+Samba Share abgelegt, dessen Bezeichnung dem aktuellen Patientennamen inkl.
+Fallnummer entspricht. Details beschreibt der Kommentar im Script.
+
+Wird das Samba Verzeichnis unter Windows als Netzlaufwerk verbunden,
+können Daten wie z.B. Scans, ohne Umweg über die DATA VITL Patientensuche direkt
+zugeordnet werden.
+
+Ist gerade kein Patient aufgerufen, enthält das Share auch keinen Symlink. Somit
+werden Fehlzuordnungen besser vermieden.
+
+Unter Verwendung des Tools detox werden Sonderzeichen im Namen des Symlinks
+konvertiert, damit wegen der unterschiedlichen Perspektiven (ISO und UTF) 
+keine Unstimmigkeiten entstehen. Ohne detox entspricht der Name des Links daher
+schlicht der Fallnummer des aktuellen Patienten.
+
+
+
+Installation:
+=============
+
+1. Detox unter Linux entpacken sowie mit "configure" und "make install"
+   installieren.
+
+2. pordner01.sh mit chmod +x nach $DAV_HOME kopieren und ggf. verviel-
+   fältigen sowie umebennnen (platz02.sh, platz03.sh,...).
+
+3. Am der jeweiligen DATA VITAL Station den OOo-Datenexport aktivieren 
+   sowie den Haken bei DAV_LID setzen.
+   Ausserdem pordnerXY.sh bei "Patient aufgerufen" eintragen.
+
+4. Entsprechend den Punkten 2 und 3 mit patexit01.sh verfahren.
+
+
+
+Speedpoint (FW), Stand: August 2015
