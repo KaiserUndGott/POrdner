@@ -1,115 +1,156 @@
 #!/bin/bash
-#
-#
-#
+
+
+
 # Erstellt beim Aufrufen eines Patienten einen Link zu dessen Dokumentenab-
-# lage in trpword (zur Nutzung in Samba).
+# lage in trpword (zur Nutzung mit Samba).
+#
+# Das Skript verwendet die aktuelle Patientennummer als Linkname. Wurde der
+# Schalter "FIXNAME" aktiviert, wird lautet der Linkname konstant "Patient".
+# Ansonsten wird der volle Pat.name inkl. Fallnummer als Linkname verwendet.
 #
 # Am Windows PC wird ggf. der Rexserver benoetigt.
 #
 # In den OO-Exporteinstellungen DAV_LID aktivieren sowie dieses Script bei
-# "Patient aufgerufen" eintragen (Key erforderlich!).
+# "Patient aufgerufen" eintragen.
 #
-# Empfohlen wird die Installation von detox, Download ggf. unter:
-# http://sourceforge.net/projects/detox/files/detox/1.2.0/
+# Empfohlen wird die Verwendung von detox, welches auf dem Speedpoint
+# Clonemasterist bereits installiert ist.
+# Download ggf. unter http://sourceforge.net/projects/detox/files/detox
+# 
+# Bitte nur zusammen mit patexitXY.sh verwenden!
 #
-# SPnG (FW), Stand: August 2015
-#
-#
-#
+# SPnG (FW), Stand: Dezember 2015
+
+
+
+
 # Bitte anpassen: ############################################################
 #
-SMBPFAD="/home/david/trpword/.stationen"  # Diesen Pfad + Login Name des Linux 
-#                                         # Users mit der smb.conf abgleichen!
+# Pfad fuer die Samba Shares der User, bitte mit der smb.conf abgleichen:
 #
-# Bitte anpassen, falls Batch Aufruf gewuenscht: #############################
-#
-IP="192.168.0.1"                          # IP des WinPC (Rexserver!)
-PORT="6666"                               # Port fuer Rexserver
-BATCH="c:\\david\startmich.bat"           # Batchdatei am WinPC
-STARTWIN=0                                # "1" zum Aktivieren d. Batchaufrufs
-#
-PATINF=0                                  # "1" zum Ausgeben einer Infodatei
-TAG="$SMBPFAD/patinf.txt"                 # Name und Pfad der Infodatei
-#   
-DEBUG=0                                   # "1" aktiviert das Logging
-DEBUGFILE="$DAV_HOME/Desktop/debug.txt"   # Name und Pfad der Logdatei
+smbpfad="/home/david/trpword/.stationen" 
 #
 ##############################################################################
-
-
-
-
-
+#
+# Schalter legt fest, ob der Linkname auf "Patient" fixiert wird.
+#   "1": Linkname ist fixiert "Patient" 
+#   "0": Voller Patientenname inkl. DV Fallnummer wird verwendet (default)
+#
+FIXNAME=0
+#
+##############################################################################
+#
+# Logging ggf. aktivieren (0/1):
+#
+debug=0
+debugfile="/home/david/trpword/pordner-$3-debug.txt"
+#
+##############################################################################
+#
+# Batch Aufruf am Windows PC, falls gewuenscht:
+#
+gobat=0					  # Batch starten (0/1)?
+#
+ip="172.16.11.98"                         # IP des WinPC (Rexserver!)
+port="6667"                               # Port des Rexservers
+batch="c:\\david\startwas.bat"            # Name der Batchdatei am WinPC
+#
+#
+# Ende der Anpassungen #######################################################
+#
+#
+#
+#
+#
 # Ab hier bitte Finger weg!
-
-
-
-
-ICHBINS=`whoami`
-APUSER="$SMBPFAD/$ICHBINS"
-[ -d $APUSER ] || mkdir -p -m 666 $APUSER
-
-######################################################
-if [ ${PATINF} = "1" ]; then
-   # Ggf. aktuelle Daten in einem File bereit stellen:
-   echo "DAV_ID: $DAV_ID" >$TAG
-   echo "Pat.nr: $1"     >>$TAG
-   echo "Praxis: $2"     >>$TAG
-   echo "LockID: $3"     >>$TAG
-   chmod 666 $TAG
+#
+#
+#
+#
+#
+# User und Samba Pfad bestimmen:
+ichbins=`whoami`
+apuser="$smbpfad/$ichbins"
+[ -d $apuser ] || mkdir -p -m 666 $apuser
+#
+#
+# ggf. alten Symlink beseitigen:
+find $smbpfad/$ichbins -maxdepth 1 -type l -delete
+#
+#
+# detox Tool suchen:
+DETX="Nein"
+[ -x /usr/bin/detox -o -x /usr/local/bin/detox ] && DETX="Ja"
+#
+#
+# Namen des Patienten definieren:
+Patient="$1"
+[ -z $Patient ] && Patient="Patient"
+#
+#
+# Vollen Pat.namen bestimmen, sofern Exportdatei vorliegt UND $FIXNAME inaktiv:
+if [ ${FIXNAME} = "0" ]; then
+   PFile="/home/david/trpword/$3/patienten$3.txt"
+   #
+   if [ -e $PFile ]; then
+      P1=`sed -n '2 p' $PFile | awk -F";" '{print $1}' | sed 's/"//g'`
+      P2=`sed -n '2 p' $PFile | awk -F";" '{print $2}' | sed 's/"//g' | tr [:blank:] '-' | tr [:lower:] [:upper:]`
+      P3=`sed -n '2 p' $PFile | awk -F";" '{print $3}' | sed 's/"//g' | tr [:blank:] '-'`
+      #
+      Patient="$P2"_"$P3"_"$P1"
+   fi
 fi
-######################################################
-
-# ggf. alten Link beseitigen:
-find $SMBPFAD/$ICHBINS -maxdepth 1 -type l -delete
-
-# Namen des Patienten bestimmen:
-PFILE="/home/david/trpword/$3/patienten$3.txt"
-if [ -e $PFILE ]; then
-    P1=`sed -n '2 p' $PFILE | awk -F";" '{print $1}' | sed 's/"//g'`
-    P2=`sed -n '2 p' $PFILE | awk -F";" '{print $2}' | sed 's/"//g' | tr [:blank:] '-' | tr [:lower:] [:upper:]`
-    P3=`sed -n '2 p' $PFILE | awk -F";" '{print $3}' | sed 's/"//g' | tr [:blank:] '-'`
-    #
-    # Falls der Name Sonderzeichen enthaelt, sollte mit detox konvertiert werden, damit aus 
-    # Windows Sicht (UTF-8!) die Darstellung korrket ist:
-    if [ -x /usr/local/bin/detox ]; then
-       DETX="Ja"
-       PATIENT="$P2"_"$P3"_"$P1"
-    else
-       DETX="Nein"
-       PATIENT="$P1"
-    fi
-else
-    #kdialog --error "Menno! Bitte in DV den OOo Datenexport aktivieren."
-    PATIENT="Patient"
-fi
-
+#
+#
 # Aktuelles Patientenverzeichnis bestimmen:
-SERVERPFAD=$DAV_HOME/trpword/pat_nr
-PFAD=`echo $1 | awk '{printf("%08.f\n",$1)}' | awk -F '' '{printf("%d/%d/%d/%d/%d/%d/%d/%d",$1,$2,$3,$4,$5,$6,$7,$8)}'`
-FULLPFAD="$SERVERPFAD/$2/$PFAD"
-mkdir -p -m 777 "$FULLPFAD" > "/dev/null" 2>&1 
-
+serverpfad=$DAV_HOME/trpword/pat_nr
+pfad=`echo $1 | awk '{printf("%08.f\n",$1)}' | awk -F '' '{printf("%d/%d/%d/%d/%d/%d/%d/%d",$1,$2,$3,$4,$5,$6,$7,$8)}'`
+fullpfad="$serverpfad/$2/$pfad"
+mkdir -p -m 777 "$fullpfad" > "/dev/null" 2>&1 
+#
+#
 # Link im Stationsordner zum akt. Patienten anlegen:
-ln -s $FULLPFAD $APUSER/$PATIENT
-[ ${DETX} = "Ja" ] && detox --special $APUSER/$PATIENT
-
+ln -s $fullpfad $apuser/$Patient
+#
+#
+# Falls der Name Sonderzeichen enthaelt, sollte mit detox konvertiert werden, damit aus 
+# Windows Sicht (UTF-8) die Darstellung korrket ist:
+[ ${DETX} = "Ja" ] && detox --special $apuser/$Patient
+#
+#
 # Ggf. Batchdatei am Windowsrechner starten:
-[ ${STARTWIN} = "1" ] && echo "DAVCMD start /min $BATCH" | netcat $IP $PORT >/dev/null
-
-#################################################
-if [ ${DEBUG} = "1" ]; then
-   echo "PatNr.      :" $P1        >$DEBUGFILE
-   echo "Nachname    :" $P2       >>$DEBUGFILE
-   echo "Vorname     :" $P3       >>$DEBUGFILE
-   echo "Detox vorh. :" $DETX     >>$DEBUGFILE
-   echo -n "Linkname    : "       >>$DEBUGFILE
-   ls /$APUSER                    >>$DEBUGFILE
-   echo "Dok.ablage  :" $FULLPFAD >>$DEBUGFILE
-   echo "Pordner     :" $APUSER   >>$DEBUGFILE
+[ ${gobat} = "1" ] && echo "DAVCMD start /min $batch" | netcat $ip $port >/dev/null
+#
+#
+####################################################
+if [ ${debug} = "1" ]; then
+   echo ""                            >$debugfile
+   echo "Aktueller DV Patientenaufruf:" >>$debugfile
+   echo "-----------------------------" >>$debugfile
+   echo ""                              >>$debugfile
+   echo "DV Uebergabeparameter:"        >>$debugfile   
+   echo "  David User  :" $DAV_ID       >>$debugfile
+   echo "  Lock_ID     :" $3            >>$debugfile
+   echo "  Praxis      :" $2            >>$debugfile
+   echo "  PatNr.      :" $1            >>$debugfile
+   echo ""                              >>$debugfile
+   echo "Aktuelle DV Eportdatei:"       >>$debugfile
+   echo "   $PFile"                     >>$debugfile
+   echo ""                              >>$debugfile
+   echo "Skript Generierte Werte:"      >>$debugfile
+   echo "  Detox vorh. :" $DETX         >>$debugfile
+   echo "  PatNr.      :" $P1           >>$debugfile 
+   echo "  Nachname    :" $P2           >>$debugfile
+   echo "  Vorname     :" $P3           >>$debugfile
+   echo "  DAVCMD aktiv:" $gobat        >>$debugfile
+   echo "  Dok.ablage  :" $fullpfad     >>$debugfile
+   echo "  Pordner     :" $apuser       >>$debugfile
+   echo -n "  Linkname    : "           >>$debugfile
+   ls $apuser                           >>$debugfile
+   chmod 666 $debugfile
 fi
-#################################################
-
-#rm -f $TAG
+####################################################
+#
+#
 exit 0
