@@ -25,11 +25,12 @@
 
 
 
+##############################################################################
 # Bitte anpassen: ############################################################
 #
 # Pfad fuer die Samba Shares der User, bitte mit der smb.conf abgleichen:
 #
-smbpfad="/home/david/trpword/.stationen" 
+SMBPFAD="/home/david/trpword/.stationen" 
 #
 ##############################################################################
 #
@@ -43,21 +44,21 @@ FIXNAME=0
 #
 # Logging ggf. aktivieren (0/1):
 #
-debug=0
-debugfile="/home/david/trpword/pordner-$3-debug.txt"
+DEBUG=0
+DEBUGFILE="/home/david/trpword/pordner-$3-debug.txt"
 #
 ##############################################################################
 #
 # Batch Aufruf am Windows PC, falls gewuenscht:
 #
-gobat=0					  # Batch starten (0/1)?
+GOBAT=0					  # Batch starten (0/1)?
 #
-ip="172.16.11.98"                         # IP des WinPC (Rexserver!)
-port="6667"                               # Port des Rexservers
-batch="c:\\david\startwas.bat"            # Name der Batchdatei am WinPC
-#
+IP="192.168.1.121"                        # IP des WinPC (Rexserver!)
+PORT="6666"                               # Port des Rexservers
+BATCH="c:\\david\startmich.bat"           # Name der Batchdatei am WinPC
 #
 # Ende der Anpassungen #######################################################
+##############################################################################
 #
 #
 #
@@ -70,13 +71,14 @@ batch="c:\\david\startwas.bat"            # Name der Batchdatei am WinPC
 #
 #
 # User und Samba Pfad bestimmen:
-ichbins=`whoami`
-apuser="$smbpfad/$ichbins"
-[ -d $apuser ] || mkdir -p -m 666 $apuser
+ICHBINS=`whoami`
+APUSER="$SMBPFAD/$ICHBINS"
+[ -d $APUSER ] || mkdir -p -m 666 $APUSER
 #
 #
-# ggf. alten Symlink beseitigen:
-find $smbpfad/$ichbins -maxdepth 1 -type l -delete
+# ggf. Datenreste beseitigen:
+find $SMBPFAD/$ICHBINS -maxdepth 1 -type l -delete
+[ -f $DEBUGFILE ] && rm -f $DEBUGFILE
 #
 #
 # detox Tool suchen:
@@ -85,21 +87,23 @@ DETX="Nein"
 #
 #
 # Namen des Patienten definieren:
-Patient="$1"
-[ -z $Patient ] && Patient="Patient"
+PATIENT="$1"
+[ -z $PATIENT ] && PATIENT="Patient"
 #
 #
 # Vollen Pat.namen bestimmen, sofern Exportdatei vorliegt UND $FIXNAME inaktiv:
 if [ ${FIXNAME} = "0" ]; then
-   PFile="/home/david/trpword/$3/patienten$3.txt"
+   PFILE="/home/david/trpword/$3/patienten$3.txt"
    #
-   if [ -e $PFile ]; then
-      P1=`sed -n '2 p' $PFile | awk -F";" '{print $1}' | sed 's/"//g'`
-      P2=`sed -n '2 p' $PFile | awk -F";" '{print $2}' | sed 's/"//g' | tr [:blank:] '-' | tr [:lower:] [:upper:]`
-      P3=`sed -n '2 p' $PFile | awk -F";" '{print $3}' | sed 's/"//g' | tr [:blank:] '-'`
+   if [ -e $PFILE ]; then
+      P1=`sed -n '2 p' $PFILE | awk -F";" '{print $1}' | sed 's/"//g'`
+      P2=`sed -n '2 p' $PFILE | awk -F";" '{print $2}' | sed 's/"//g' | tr [:blank:] '-' | tr [:lower:] [:upper:]`
+      P3=`sed -n '2 p' $PFILE | awk -F";" '{print $3}' | sed 's/"//g' | tr [:blank:] '-'`
       #
-      Patient="$P2"_"$P3"_"$P1"
+      PATIENT="$P2"_"$P3"_"$P1"
    fi
+else
+   kdialog --sorry "Exportdatei nicht gefunden. Bitte DATA VITAL Datenexport pruefen."
 fi
 #
 #
@@ -111,44 +115,44 @@ mkdir -p -m 777 "$fullpfad" > "/dev/null" 2>&1
 #
 #
 # Link im Stationsordner zum akt. Patienten anlegen:
-ln -s $fullpfad $apuser/$Patient
+ln -s $fullpfad $APUSER/$PATIENT
 #
 #
 # Falls der Name Sonderzeichen enthaelt, sollte mit detox konvertiert werden, damit aus 
 # Windows Sicht (UTF-8) die Darstellung korrket ist:
-[ ${DETX} = "Ja" ] && detox --special $apuser/$Patient
+[ ${DETX} = "Ja" ] && detox --special $APUSER/$PATIENT
 #
 #
 # Ggf. Batchdatei am Windowsrechner starten:
-[ ${gobat} = "1" ] && echo "DAVCMD start /min $batch" | netcat $ip $port >/dev/null
+[ ${GOBAT} = "1" ] && echo "DAVCMD start /min $BATCH" | netcat $IP $PORT >/dev/null
 #
 #
 ####################################################
-if [ ${debug} = "1" ]; then
-   echo ""                            >$debugfile
-   echo "Aktueller DV Patientenaufruf:" >>$debugfile
-   echo "-----------------------------" >>$debugfile
-   echo ""                              >>$debugfile
-   echo "DV Uebergabeparameter:"        >>$debugfile   
-   echo "  David User  :" $DAV_ID       >>$debugfile
-   echo "  Lock_ID     :" $3            >>$debugfile
-   echo "  Praxis      :" $2            >>$debugfile
-   echo "  PatNr.      :" $1            >>$debugfile
-   echo ""                              >>$debugfile
-   echo "Aktuelle DV Eportdatei:"       >>$debugfile
-   echo "   $PFile"                     >>$debugfile
-   echo ""                              >>$debugfile
-   echo "Skript Generierte Werte:"      >>$debugfile
-   echo "  Detox vorh. :" $DETX         >>$debugfile
-   echo "  PatNr.      :" $P1           >>$debugfile 
-   echo "  Nachname    :" $P2           >>$debugfile
-   echo "  Vorname     :" $P3           >>$debugfile
-   echo "  DAVCMD aktiv:" $gobat        >>$debugfile
-   echo "  Dok.ablage  :" $fullpfad     >>$debugfile
-   echo "  Pordner     :" $apuser       >>$debugfile
-   echo -n "  Linkname    : "           >>$debugfile
-   ls $apuser                           >>$debugfile
-   chmod 666 $debugfile
+if [ ${DEBUG} = "1" ]; then
+   echo ""                               >$DEBUGFILE
+   echo "Aktueller DV Patientenaufruf:" >>$DEBUGFILE
+   echo "-----------------------------" >>$DEBUGFILE
+   echo ""                              >>$DEBUGFILE
+   echo "DV Uebergabeparameter:"        >>$DEBUGFILE   
+   echo "  David User  :" $DAV_ID       >>$DEBUGFILE
+   echo "  Lock_ID     :" $3            >>$DEBUGFILE
+   echo "  Praxis      :" $2            >>$DEBUGFILE
+   echo "  PatNr.      :" $1            >>$DEBUGFILE
+   echo ""                              >>$DEBUGFILE
+   echo "Aktuelle DV Eportdatei:"       >>$DEBUGFILE
+   echo "   $PFILE"                     >>$DEBUGFILE
+   echo ""                              >>$DEBUGFILE
+   echo "Skript Generierte Werte:"      >>$DEBUGFILE
+   echo "  Detox vorh. :" $DETX         >>$DEBUGFILE
+   echo "  PatNr.      :" $P1           >>$DEBUGFILE 
+   echo "  Nachname    :" $P2           >>$DEBUGFILE
+   echo "  Vorname     :" $P3           >>$DEBUGFILE
+   echo "  DAVCMD aktiv:" $GOBAT        >>$DEBUGFILE
+   echo "  Dok.ablage  :" $fullpfad     >>$DEBUGFILE
+   echo "  Pordner     :" $APUSER       >>$DEBUGFILE
+   echo -n "  Linkname    : "           >>$DEBUGFILE
+   ls $APUSER                           >>$DEBUGFILE
+   chmod 666 $DEBUGFILE
 fi
 ####################################################
 #
